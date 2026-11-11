@@ -184,6 +184,18 @@ export class Uarm {
     }
 
     @guard()
+    enqueueKeys(events: Uint32Array): number {
+        if (events.length === 0) return 0;
+        const data = new Uint8Array(events.buffer, events.byteOffset, events.byteLength);
+        const ptr = this.copyIn(data);
+        try {
+            return this.uarm.EnqueueKeys(events.length, ptr);
+        } finally {
+            this.bridge.Free(ptr);
+        }
+    }
+
+    @guard()
     penDown(x: number, y: number): void {
         this.uarm.PenDown(x, y);
     }

@@ -7,6 +7,7 @@ export enum ScreenSize {
     screen320x480 = '320x480',
     screen480x480 = '480x480',
     screen480x720 = '480x720',
+    screen480x320 = '480x320',
 }
 
 export interface Dimensions {
@@ -30,6 +31,7 @@ export function densityForScreenSize(screenSize: ScreenSize): number {
 
         case ScreenSize.screen320x320:
         case ScreenSize.screen320x480:
+        case ScreenSize.screen480x320:
             return 2;
 
         case ScreenSize.screen480x480:

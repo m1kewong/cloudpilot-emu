@@ -37,6 +37,11 @@ export interface SystemState {
 const MAX_PCM_SUSPEND_MSEC = 500;
 const MAX_PCM_BUFFERS_IN_FLIGHT = 5;
 const MAX_PCM_WAIT_FOR_BUFFER_MSEC = 5000;
+const MAX_QUEUED_KEYS = 1024;
+const KEY_BATCH_SIZE = 32;
+const KEY_RETRY_DELAY_MSEC = 16;
+const CONTROL_KEY_MASK = 0x0020;
+const COMMAND_KEY_MASK = 0x0008;
 
 export class Emulator {
     constructor(
@@ -124,6 +129,18 @@ export class Emulator {
         this.uarm.buttonDown(button);
     }
 
+    keyStroke(key: number, ctrl: boolean): void {
+        if (!this.running || !this.uiInitialized || !Number.isInteger(key) || key < 0 || key > 0xffff) return;
+        if (this.pendingKeys.length >= MAX_QUEUED_KEYS) {
+            console.warn('Palm keyboard queue is full');
+            return;
+        }
+
+        // Palm's standard virtual keys are character codes, with commandKeyMask.
+        const modifiers = (ctrl ? CONTROL_KEY_MASK : 0) | (key >= 0x100 ? COMMAND_KEY_MASK : 0);
+        this.pendingKeys.push((key | (modifiers << 16)) >>> 0);
+    }
+
     penDown(x: number, y: number): void {
         this.uarm.penDown(x, y);
     }
@@ -139,6 +156,7 @@ export class Emulator {
 
     stop(): void {
         this.running = false;
+        this.pendingKeys.length = 0;
         this.updateRunState();
     }
 
@@ -220,6 +238,8 @@ export class Emulator {
     }
 
     reset(resetType: ResetType): void {
+        this.pendingKeys.length = 0;
+        this.nextKeyboardAttemptAt = 0;
         switch (resetType) {
             case ResetType.normal:
                 break;
@@ -384,6 +404,8 @@ export class Emulator {
     }
 
     private timesliceTask = () => {
+        this.flushKeyboardInput();
+
         const now64 = this.uarm.getTimestampUsec();
         const now = Number(now64);
 
@@ -423,6 +445,18 @@ export class Emulator {
             currentIpsMax: this.uarm.getCurrentIpsMax(),
         });
     };
+
+    private flushKeyboardInput(): void {
+        const now = performance.now();
+        if (this.pendingKeys.length === 0 || !this.uiInitialized || now < this.nextKeyboardAttemptAt) return;
+
+        // One safe-point preparation per batch, rather than per character. Retain
+        // unaccepted events when the guest queue is full or the OS is busy.
+        const events = new Uint32Array(this.pendingKeys.slice(0, KEY_BATCH_SIZE));
+        const accepted = this.uarm.enqueueKeys(events);
+        if (accepted > 0) this.pendingKeys.splice(0, accepted);
+        this.nextKeyboardAttemptAt = accepted < events.length ? performance.now() + KEY_RETRY_DELAY_MSEC : 0;
+    }
 
     private processSamples(timesliceSizeSeconds: number): void {
         const now = performance.now();
@@ -584,4 +618,6 @@ export class Emulator {
 
     private uiInitialized = false;
     private osVersion: number | undefined;
+    private pendingKeys: Array<number> = [];
+    private nextKeyboardAttemptAt = 0;
 }

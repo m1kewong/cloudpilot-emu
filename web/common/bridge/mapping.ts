@@ -28,6 +28,9 @@ export function screenSizeToDisplayMode(screenSize: ScreenSize): DisplayMode {
         case ScreenSize.screen480x720:
             return DisplayMode.mode_480x720;
 
+        case ScreenSize.screen480x320:
+            return DisplayMode.mode_480x320;
+
         default:
             screenSize satisfies never;
             throw new Error('undefined');
@@ -59,6 +62,9 @@ export function screenSizeFromDisplayMode(displayMode: DisplayMode): ScreenSize 
 
         case DisplayMode.mode_480x720:
             return ScreenSize.screen480x720;
+
+        case DisplayMode.mode_480x320:
+            return ScreenSize.screen480x320;
 
         default:
             displayMode satisfies never;

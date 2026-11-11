@@ -15,6 +15,7 @@
 #include "RAM.h"
 #include "ROM.h"
 #include "device_type5.h"
+#include "mem.h"
 #include "memory_buffer.h"
 #include "patch68k.h"
 #include "patch_dispatch.h"
@@ -61,6 +62,34 @@ namespace {
     }
 
     void uartDebugWriteF(uint8_t chr, void *ctx) { fprintf(stderr, "%c", chr); }
+
+    // Sony UX50 software port: the unmodified Sony 'Avx SAL' module refines the
+    // 10 msec system tick with a hardware tick timer (compare register at +8,
+    // free running counter at +0xc, 12800 counts per tick) and takes a data
+    // abort without it. We report "no time elapsed since the last tick": the
+    // guest then uses plain tick resolution, which is monotonic. Read only; no
+    // other register in this block is implemented.
+    constexpr uint32_t SONY_TICK_TIMER_BASE = 0x80010000;
+    constexpr uint32_t SONY_TICK_TIMER_SIZE = 0x10;
+    constexpr uint32_t SONY_TICK_TIMER_COUNTS_PER_TICK = 12800;
+
+    bool sonyTickTimerAccessF(void *userData, uint32_t pa, uint_fast8_t size, bool write,
+                              void *buf) {
+        if (size != 4 || write) return false;
+
+        switch (pa - SONY_TICK_TIMER_BASE) {
+            case 0x08:
+                *static_cast<uint32_t *>(buf) = SONY_TICK_TIMER_COUNTS_PER_TICK;
+                return true;
+
+            case 0x0c:
+                *static_cast<uint32_t *>(buf) = 0;
+                return true;
+
+            default:
+                return false;
+        }
+    }
 }  // namespace
 
 SocPV::SocPV(uint32_t ramSize, void *romData, const uint32_t romSize, DisplayMode displayMode,
@@ -108,6 +137,7 @@ SocPV::SocPV(uint32_t ramSize, void *romData, const uint32_t romSize, DisplayMod
     storage = pvStorageInit(mem, ic, ram, rom);
 
     pvUartSetWriteF(uartDebug, uartDebugWriteF, nullptr);
+    memRegionAdd(mem, SONY_TICK_TIMER_BASE, SONY_TICK_TIMER_SIZE, sonyTickTimerAccessF, nullptr);
 
     framebuffer = make_unique<uint32_t[]>(displayConfiguration.width * displayConfiguration.height);
 

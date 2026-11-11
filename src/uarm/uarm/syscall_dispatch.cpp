@@ -349,6 +349,15 @@ uint16_t syscall68k_MemNumCards(struct SyscallDispatch* sd, uint32_t flags) {
     return syscall68k(sd, flags, SYSCALL_68K_MEM_NUM_CARDS, false, []() {});
 }
 
+uint16_t syscall68k_EvtEnqueueKey(struct SyscallDispatch* sd, uint32_t flags, uint16_t ascii,
+                                  uint16_t keycode, uint16_t modifiers) {
+    return syscall68k(sd, flags, SYSCALL_68K_EVT_ENQUEUE_KEY, false, [=]() {
+        pacePush16(modifiers);
+        pacePush16(keycode);
+        pacePush16(ascii);
+    });
+}
+
 uint16_t syscall68k_ExgDBRead(struct SyscallDispatch* sd, uint32_t flags, uint32_t readProcP,
                               uint32_t deleteProcP, uint32_t userDataP, uint32_t dbIDP,
                               uint16_t cardNo, uint32_t needsResetP, bool keepDates) {

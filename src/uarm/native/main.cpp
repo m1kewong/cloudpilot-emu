@@ -415,7 +415,7 @@ int main(int argc, char** argv) {
     program.add_argument("--display")
         .help(
             "display mode (if supported); valid are 160x160, 160x240, 240x240, 240x320, "
-            "320x320, 320x480, 480x480, 480x720")
+            "320x320, 320x480, 480x480, 480x720, 480x320")
         .metavar("<resolution>")
         .action([](const string& value) {
             if (value == "160x160") return DisplayMode::mode_160x160;
@@ -426,6 +426,7 @@ int main(int argc, char** argv) {
             if (value == "320x480") return DisplayMode::mode_320x480;
             if (value == "480x480") return DisplayMode::mode_480x480;
             if (value == "480x720") return DisplayMode::mode_480x720;
+            if (value == "480x320") return DisplayMode::mode_480x320;
 
             throw runtime_error("invalid display mode");
         });

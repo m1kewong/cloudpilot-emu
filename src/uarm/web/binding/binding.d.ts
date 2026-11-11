@@ -52,6 +52,7 @@ export const enum DisplayMode {
     mode_320x480 = 6,
     mode_480x480 = 7,
     mode_480x720 = 8,
+    mode_480x320 = 9,
 }
 
 export interface Uarm {
@@ -87,6 +88,7 @@ export interface Uarm {
 
     KeyDown(key: KeyId): void;
     KeyUp(key: KeyId): void;
+    EnqueueKeys(count: number, data: VoidPtr): number;
 
     PendingSamples(): number;
     PopQueuedSamples(): VoidPtr;

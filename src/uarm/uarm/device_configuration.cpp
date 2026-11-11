@@ -82,6 +82,9 @@ DisplayConfiguration deviceConfigurationDisplayConfigForMode(DisplayMode mode) {
         case DisplayMode::mode_480x720:
             return {.width = 480, .height = 720, .graffitiHeight = 0, .density = 216};
 
+        case DisplayMode::mode_480x320:
+            return {.width = 480, .height = 320, .graffitiHeight = 0, .density = 144};
+
         default:
             return DisplayConfiguration{};
     }

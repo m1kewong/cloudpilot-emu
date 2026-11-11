@@ -13,7 +13,9 @@ enum class DisplayMode {
     mode_320x320 = 5,
     mode_320x480 = 6,
     mode_480x480 = 7,
-    mode_480x720 = 8
+    mode_480x720 = 8,
+    // Append new values: existing mode IDs are stored in session images.
+    mode_480x320 = 9
 };
 
 struct DisplayConfiguration {

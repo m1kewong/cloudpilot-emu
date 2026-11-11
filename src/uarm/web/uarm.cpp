@@ -19,6 +19,7 @@
 #include "sdcard.h"
 #include "soc_PXA.h"
 #include "soc_pv.h"
+#include "syscall_dispatch.h"
 #include "system_state.h"
 
 using namespace std;
@@ -189,6 +190,27 @@ uint64_t Uarm::GetTimestampUsec() { return timestampUsec(); }
 void Uarm::KeyDown(int key) { soc->KeyDown((enum KeyId)key); }
 
 void Uarm::KeyUp(int key) { soc->KeyUp((enum KeyId)key); }
+
+uint32_t Uarm::EnqueueKeys(uint32_t count, void* data) {
+    constexpr uint32_t MAX_BATCH_SIZE = 32;
+    if (!soc || !data || count == 0 || count > MAX_BATCH_SIZE || !IsUiInitialized()) return 0;
+
+    auto* dispatch = soc->GetSyscallDispatch();
+    if (!syscallDispatchM68kSupport(dispatch) || syscallDispatchInProgress(dispatch) ||
+        !syscallDispatchPrepare(dispatch))
+        return 0;
+
+    const auto* events = static_cast<const uint32_t*>(data);
+    uint32_t accepted = 0;
+    for (; accepted < count; accepted++) {
+        const uint16_t character = events[accepted] & 0xffff;
+        const uint16_t modifiers = events[accepted] >> 16;
+        if (syscall68k_EvtEnqueueKey(dispatch, SC_EXECUTE_PURE, character, 0, modifiers) != 0)
+            break;
+    }
+
+    return accepted;
+}
 
 uint32_t Uarm::PendingSamples() { return audioQueuePendingSamples(audioQueue); }
 

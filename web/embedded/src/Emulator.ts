@@ -69,6 +69,13 @@ export interface Emulator {
     loadSession(session: Uint8Array): Promise<void>;
 
     /**
+     * Serialize the running session (ROM, RAM, CPU and device state) into a
+     * session image that can later be passed to `loadSession`. Returns
+     * `undefined` if no session is loaded.
+     */
+    saveSession(): Promise<Uint8Array | undefined>;
+
+    /**
      * Attach and mount a gzip compressed card image.
      *
      * @param cardImage Gzip compressed image data
@@ -203,6 +210,12 @@ export interface Emulator {
      * Pause a running device.
      */
     pause(): Promise<void>;
+
+    /**
+     * Send a Palm character code to the guest. OS5 virtual keys in the
+     * 0x0100..0x01ff range include the command modifier (Home is 0x0108).
+     */
+    sendKey(key: number): void;
 
     /**
      * Push a hardware button.
@@ -480,6 +493,8 @@ export class EmulatorImpl implements Emulator {
                 throw new Error('failed to initialize session');
             }
 
+            this.imageGeometry = { ramSize: ramSizeMb ? ramSizeMb << 20 : undefined, screenSize };
+
             this.eventHandlingService.setDpadEnabled(this.enableDpad());
             this.canvasDisplayService.setDpadEnabled(this.enableDpad());
             await this.canvasDisplayService.initialize(undefined, deviceId, this.session.orientation, screenSize);
@@ -509,12 +524,42 @@ export class EmulatorImpl implements Emulator {
 
             this.eventHandlingService.setDpadEnabled(this.enableDpad());
             this.canvasDisplayService.setDpadEnabled(this.enableDpad());
+            this.imageGeometry = { ramSize: sessionImage.ramSize, screenSize: sessionImage.screenSize };
+
             await this.canvasDisplayService.initialize(
                 undefined,
                 sessionImage.deviceId,
                 this.session.orientation,
                 sessionImage.screenSize,
             );
+        });
+    }
+
+    async saveSession(): Promise<Uint8Array | undefined> {
+        return this.mutex.runExclusive(async () => {
+            const engine = this.emulationService.getEngine();
+            if (!engine) return undefined;
+
+            const state = await engine.getFullState();
+            if (!state) return undefined;
+
+            return this.cloudpilot.serializeSessionImage<SessionMetadata>({
+                engine: engine.type,
+                ramSize: this.imageGeometry.ramSize ?? state.memory.length,
+                deviceId: this.session.deviceId,
+                screenSize: this.imageGeometry.screenSize,
+                metadata: {
+                    hotsyncName: this.session.hotsyncName,
+                    speed: this.session.speed,
+                    deviceOrientation: this.session.orientation,
+                    maxHostLoad: this.session.maxHostLoad,
+                    disableAudio: this.session.disablePcmAudio,
+                },
+                rom: state.rom,
+                memory: state.memory,
+                savestate: state.savestate,
+                nand: state.nand,
+            });
         });
     }
 
@@ -666,6 +711,13 @@ export class EmulatorImpl implements Emulator {
 
     buttonDown(button: Button): void {
         this.emulationService.handleButtonDown(button as number);
+    }
+
+    sendKey(key: number): void {
+        if (!Number.isInteger(key) || key < 0 || key > 0xffff) {
+            throw new RangeError('Palm key must be an unsigned 16-bit character code');
+        }
+        this.emulationService.handleKeyDown(key);
     }
 
     buttonUp(button: Button): void {
@@ -873,6 +925,7 @@ export class EmulatorImpl implements Emulator {
     readonly audioInitializedEvent = new EventImpl<void>();
 
     private mutex = new Mutex();
+    private imageGeometry: { ramSize?: number; screenSize?: ScreenSize } = {};
 
     private emulationService: EmbeddedEmulationService;
     private canvasDisplayService: EmbeddedCanvasDisplayService;

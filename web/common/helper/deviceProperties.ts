@@ -62,6 +62,13 @@ function dimensionsForScreenSize(screenSize: ScreenSize): Pick<Dimensions, 'widt
                 height: 720,
             };
 
+        case ScreenSize.screen480x320:
+            return {
+                screenSize,
+                width: 480,
+                height: 320,
+            };
+
         default:
             screenSize satisfies never;
             throw new Error('unreachable');
@@ -465,6 +472,7 @@ export function selectableScreenSizes(deviceId: DeviceId): Array<ScreenSize> | u
             ScreenSize.screen320x480,
             ScreenSize.screen480x480,
             ScreenSize.screen480x720,
+            ScreenSize.screen480x320,
         ];
     }
 

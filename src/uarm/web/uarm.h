@@ -53,6 +53,10 @@ class Uarm {
     void KeyDown(int key);
     void KeyUp(int key);
 
+    // Packed events: low 16 bits are the Palm character, high 16 bits modifiers.
+    // Returns the number accepted by the guest's keyboard event queue.
+    uint32_t EnqueueKeys(uint32_t count, void* data);
+
     uint32_t PendingSamples();
     uint32_t* PopQueuedSamples();
     uint32_t GetSampleQueueSize();
